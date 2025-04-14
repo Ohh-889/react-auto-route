@@ -4,722 +4,132 @@
 
 ## 介绍
 
-ElegantRouter 是一个基于文件系统创建路由的工具，它能自动化生成路由定义、路由文件导入以及路由相关的类型定义。只需按照约定的规则创建路由文件，无需在路由文件中添加任何额外配置。
+下面是一份示例文档，可帮助你介绍一个“类似 Next.js 的基于文件的路由插件”（无需 Node 依赖，采用约定式文件结构），并将链接指向 [react-docs.soybeanjs.cn/routes](https://react-docs.soybeanjs.cn/routes) 以获取更多信息。你可以在 README 或官方文档中放置这篇内容，帮助开发者了解、安装并使用该插件。
+
+---
+
+# 类似 Next.js 的文件式路由插件
+
+> **文档地址**: [https://react-docs.soybeanjs.cn/routes](https://react-docs.soybeanjs.cn/routes)  
+> 如果你想了解更多技术细节或内部实现原理，欢迎点击上方链接前往查看。
+
+## 为什么需要这个插件？
+
+- **无需 Node，纯前端静态部署可用**  
+  不同于 Next.js 那样依赖 Node 服务器做 SSR（Server-Side Rendering）或 SSG（Static Site Generation），本插件的目标是在**任何静态环境**下就能跑。你只需要一个普通的前端构建流程（Vite、Webpack 等），再将产物部署到任意 HTTP 服务器或 CDN 即可。
+
+- **约定式路由，目录即页面**  
+  参考 Next.js 等优秀的文件式路由理念，无需维护额外路由配置文件。只要遵循简单的“`pages` 目录结构”规则，每个目录或 `.tsx` 文件就能映射成一个路由页面，省去了手写路由表的麻烦。
+
+- **贴合国内前端的项目习惯**  
+  在国内，许多团队已经习惯了“在 `src/pages` 或 `pages` 目录里直接写页面”。这个插件与 React Router 深度结合，使用方式**简单直观**，让你几乎不用改变平时的开发习惯。
+
+- **与 React Router 生态兼容**  
+  插件底层基于 [React Router](https://reactrouter.com/)，保留了其核心特性和常用 API。如果你想在某些特殊场景下自定义路由行为，依然可以随时跳回 React Router 的写法，**灵活度更高**。
+
+## 功能特性
+
+1. **自动扫描文件生成路由**  
+   无需手工配置 `path`、`Component` 等，插件会扫描 `pages` 目录结构并自动生成对应的路由层级。
+
+2. **支持动态路由 / 动态参数**  
+   通过类似 `[id].tsx` 或 `[...slug].tsx` 这样的命名方式，你可以轻松实现**动态路径**；在页面组件中，用 React Router 的 `useParams()` 或插件提供的工具解析 URL 参数。
+
+3. **多级嵌套路由**  
+   假如你的文件结构是：  
+   ```
+   pages/
+     user/
+       profile.tsx
+       settings.tsx
+   ```
+   插件会自动生成多级路由，让用户访问 `/user/profile`、`/user/settings` 时，分别渲染对应组件。不需手动添加 `<Route>`。
+
+4. **灵活的路由 Hook**  
+   若你需要更多自定义逻辑（如守卫、权限校验、数据预加载等），可直接利用 React Router 原生的 `useLocation`、`useNavigate`、`Outlet` 等 API，或在配置文件中添加自定义规则。
+
+5. **与前端工具链无缝衔接**  
+   - 兼容常见打包工具 (Vite、Webpack、Parcel 等)；  
+   - 不限于特定框架结构，无论是 `create-react-app` 还是自定义的脚手架，都能轻松集成。
+
+## 如何安装使用
+
+> **更多详细使用说明，请访问 [官方文档](https://react-docs.soybeanjs.cn/routes)。**
+
+1. **安装依赖**  
+   ```bash
+   # 以 npm 为例
+   npm install --save-dev @soybean-react/vite-plugin-react-router
+   # 或者使用 yarn/pnpm 等包管理工具
+   yarn add --dev @soybean-react/vite-plugin-react-router
+   ```
+
+2. **在项目配置中启用**  
+   - 如果使用 Vite，可在 `vite.config.ts` 中引入并配置插件；  
+   - 对于 Webpack，也可以通过自定义的 Plugin/HMR 方案来接入。  
+   下面以 Vite 为示例：
+   ```ts
+   // vite.config.ts
+   import { defineConfig } from 'vite';
+   import react from '@vitejs/plugin-react';
+   import FileBasedRouter from '@soybean-react/vite-plugin-react-router';
+
+   export default defineConfig({
+     plugins: [
+       react(),
+       FileBasedRouter({
+         // 可选配置项，例如 pages 目录路径等
+         pagesDir: 'src/pages',
+         // 其他自定义选项……
+       })
+     ],
+   });
+   ```
+
+3. **创建 `pages` 目录**  
+   在项目根目录或 `src/` 下面创建一个 `pages` 文件夹，比如：
+   ```
+   src/
+     pages/
+       index.tsx
+       about.tsx
+       user/
+         index.tsx
+         [id].tsx
+   ```
+   - `index.tsx` 对应 `/` 路径  
+   - `about.tsx` 对应 `/about`  
+   - `user/index.tsx` 对应 `/user`  
+   - `user/[id].tsx` 对应 `/user/:id` (动态路由)
+
+4. **运行项目**  
+   启动本地开发服务器，访问相应 URL，看是否能正常加载对应的页面组件。
+
+## 常见问题
 
-### 异同点
+1. **与官方文件式路由有何区别？**  
+   React Router 官方也提供了[基于文件夹的路由插件](https://reactrouter.com/en/main/routers/picking-a-router)，功能非常强大。  
+   - 但是在有些场景，项目不希望或无法迁移到 Node SSR 环境，希望保留“纯前端”的方式；  
+   - 或者对“目录即路由”的映射规则有定制需求；  
+   - 或需要极简的打包输出及部署流程。  
+   这时，本插件能提供更直接、贴合国内开发习惯的选项，**与官方方案不冲突**，二者可根据实际需求选择。
 
-ElegantRouter 与其他基于文件系统的路由工具的主要区别在于：
+2. **是否支持嵌套布局或 Layout？**  
+   - 可以在 `pages/` 中通过文件夹结构或自定义 `layout.tsx` 等文件的方式，结合 React Router 提供的 `<Outlet>`，轻松实现多级嵌套布局。  
+   - 详情参阅 [文档示例](https://react-docs.soybeanjs.cn/routes) 中的“嵌套布局”章节。
 
-1. 其他工具的配置规则繁多，路由数据为黑盒，自定义难度大。
-2. ElegantRouter 遵循api-first原则，将配置路由的过程自动化。
+3. **打包后如何部署？**  
+   - 打包后会生成纯前端产物，直接丢到任何静态服务器或 CDN 都可使用；无需 Node、Nginx 做特殊配置（除非你想自定义路由回退或 404 页面）。  
+   - 如果要配合后端路由，需要确保后端能在刷新时正确返回前端入口文件（常见做法是做一个 `/*` 通配路由指向 `index.html`）。
 
-以配置React路由为例，传统的创建页面路由需要以下步骤：
+4. **能与 SSR、SSG 结合吗？**  
+   - 默认是纯前端 SPA，不处理服务端渲染。如果你需要 SSR，可以考虑 Next.js 或 Remix。但本插件更多是为“不需要 SSR 的静态项目”服务。
 
-1. 导入布局组件
-2. 导入页面组件
-3. 在路由配置文件中定义路由
+## 更多资料
 
-这些步骤虽然不复杂，但在实际开发中，它们是重复且需要手动完成的。此外，路由名称和路径的维护非常麻烦，对布局和页面组件的路由定义没有明确的约定，导致路由定义混乱。
-而使用ElegantRouter，你只需要按照约定的规则创建路由文件，即可在指定的路由文件中自动生成路由。
+- **[详细使用文档](https://react-docs.soybeanjs.cn/routes)**（强烈推荐）：包含路由生成原理、动态参数配置、嵌套布局示例、常见问题等。
+- 欢迎在 GitHub 仓库提交 [Issue/PR]：若你在使用过程中遇到问题或有需求扩展，可以随时与我们沟通。
 
-### ElegantRouter 的路由配置过程
+---
 
-只需要按照约定的规则创建路由文件即可在指定的路由文件中生成该路由
-
-## 安装
-
-
-```bash
-pnpm install @ohh-889/react-auto-route
-```
-
-## 注意项
-
-### `react-router-dom`
-
-- 需要安装 `v6`以上的版本 不兼容低版本的`react-router-dom`
-
-### 路由懒加载
-
-- 页面路由配置
-
-``` ts
-
-export function Component() {
-  return <div>Component</div>;
-}
-
-```
-- 一定要以`Component`为函数名字 用`export` 导出
-
-#### 如果想要使用默认导出
-
-**1. 改写lazy这个方法**
-
-```tsx
-lazy:async ()=>{
- const component=await import('@/views/Component.tsx')
-
- return {
-  Component:component.default
-  ErrorBoundary:ErrorBoundary,
- }
-//  或者
-const Component=component.default
-return {
-  element:<Component />,
-  ErrorBoundary:ErrorBoundary,
-}
-}
-```
-- 如果使用ts还要改ts的类型声明
-
-
-**2. 自己处理路由懒加载**
-
-- 使用路由加载器的一个`option` 
-
-`optsunstable_datastrategy`
-
-- [相关链接](https://reactrouter.com/en/main/routers/create-browser-router#optsunstable_datastrategy) 
-
-##### 作者并非全职开源，没必要给自己自找麻烦 没有示例，如果有余力的同学，可以自己去钻研这两个方法
-
-
-## 最佳实践
-
-
-- **react-soybean-admin**
-  - [预览地址](https://github.com/mufeng889/react-soybean-admin)
-
-- **灵感来源**
-
-  - [elegant-router](https://github.com/soybeanjs/elegant-router)
-
-> **elegant-router最佳实践**
-> `soybean-admin` [预览地址](https://github.com/soybeanjs/soybean-admin)
-> - 这是一个`vue`技术栈的后台管理系统项目
-
-
-## 使用
-
-### 在 Vite 中引入插件
-
-```ts
-import { fileURLToPath, URL } from "node:url";
-import { defineConfig } from "vite";
-import react from '@vitejs/plugin-react-swc';
-import ElegantVueRouter from "@@ohh-889/react-auto-route";
-
-export default defineConfig({
-  plugins: [
-    react(),
-    ElegantReactRouter({
-      layouts: {
-        base: "src/layouts/base-layout/index.tsx",
-        blank: "src/layouts/blank-layout/index.tsx",
-      },
-    }),
-  ],
-  resolve: {
-    alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
-    },
-  },
-});
-```
-
-### 在 React 路由中集成
-
-**src/router/routes/index.ts**
-
-```ts
-import type { ElegantRoute, CustomRoute } from "@elegant-router/types";
-import { generatedRoutes } from "../elegant/routes";
-import { layouts, views } from "../elegant/imports";
-import { transformElegantRoutesToReactRoutes } from "../elegant/transform";
-
-const customRoutes: CustomRoute[] = [
-  {
-  name: 'root',
-  path: '/',
-  redirectTo: '/home',
-  meta: {
-    title: 'root',
-    constant: true
-  }
-  },
-  {
-  name: 'not-found',
-  path: '*',
-  component: '$view.404',
-  meta: {
-    title: 'not-found',
-    constant: true
-  }
-  },
-];
-
-const elegantRoutes: ElegantRoute[] = [...customRoutes, ...generatedRoutes];
-
-export const routes = transformElegantRoutesToReactRoutes(
-  elegantRoutes,
-  layouts,
-  views
-);
-```
-
-**src/router/index.ts**
-
-```ts
-import {createBrowserRouter} from 'react-router-dom'
-import { routes } from "./routes";
-
-export const router=createBrowserRouter(builtinRoutes)
-```
-
-**src/App.tsx**
-
-```ts
-import { RouterProvider } from 'react-router-dom';
-import { router } from "@/router";
-
-const App = () => {
-  return <RouterProvider router={reactRouter} />
-}
-
-```
-
-
-### 启动项目
-
-启动项目后，插件会自动生成 src/router/elegant 目录，该目录下的文件为自动生成的路由导入、路由定义和路由转换的文件
-
-## 配置
-
-### 路由文件创建
-
-通过配置 `pagePatterns` 可以指定路由文件的创建规则，路由文件的创建规则为正则表达式，如果路由文件的路径匹配该正则表达式，则会创建路由文件
-
-默认：文件夹下面所有以 `index.tsx`、`[id].tsx`、`[module].tsx` 等 命名的文件
-
-```ts
-pagePatterns: ["**‍/index.tsx", "**‍/[[]*[]].tsx"];
-```
-
-### 一级路由(单级路由)
-
-#### 文件夹结构
-
-```
-views
-├── about
-│   └── index.tsx
-```
-
-#### 生成的路由
-
-```ts
-{
-  name: 'about',
-  path: '/about',
-  component: 'layout.base$view.about',
-  meta: {
-    title: 'about'
-  }
-},
-```
-
-> 它是一个单级路由，为了添加布局，组件属性将布局和视图组件组合在一起，用美元符号“$”分割
-
-#### 转换成的React路由
-
-```ts
-{
-  path: '/about',
-  component: BaseLayout,
-  ErrorBoundary: ErrorBoundary,
-  children: [
-    {
-      id: 'about',
-      index:true,
-      lazy: () => import('@/pages/about/index.tsx'),
-      handle: {
-        title: 'about'
-      }
-    }
-  ]
-},
-```
-
-### 二级路由
-
-#### 文件夹结构
-
-```
-views
-├── list
-│   ├── home
-│   │   └── index.tsx
-│   ├── detail
-│   │   └── index.tsx
-```
-
-**错误示例**
-
-```
-views
-├── list
-│   ├── index.tsx
-│   ├── detail
-│   │   └── index.tsx
-```
-> 请不要出现上述 index.tsx 和文件夹同级的情况，这种情况不在约定的规则中
-
-#### 生成的路由
-
-```ts
-{
-  name: 'list',
-  path: '/list',
-  component: 'layout.base',
-  meta: {
-    title: 'list'
-  },
-  children: [
-    {
-      name: 'list_home',
-      path: 'home',
-      component: 'view.list_home',
-      meta: {
-        title: 'list_home'
-      }
-    },
-    {
-      name: 'list_detail',
-      path: 'detail',
-      component: 'view.list_detail',
-      meta: {
-        title: 'list_detail'
-      }
-    }
-  ]
-}
-```
-
-> 二级路由的路由数据也是有两层的，第一层路由是布局组件，第二层路由是页面组件
-
-#### 转换成的React路由
-
-```ts
-{
-  name: 'list',
-  path: '/list',
-  component: BaseLayout,
-  ErrorBoundary: ErrorBoundary,
-  loader: ()=>redirect('/list/home'),
-  handle: {
-    title: 'list'
-  },
-  children: [
-    {
-      name: 'list_home',
-      path: 'home',
-      lazy: () => import('@/views/list/home/index.tsx'),
-      handle: {
-        title: 'list_home'
-      }
-    },
-    {
-      name: 'list_detail',
-      path: 'detail',
-      lazy: () => import('@/views/list/detail/index.tsx'),
-      handle: {
-        title: 'list_detail'
-      }
-    }
-  ]
-},
-```
-
-> 路由数据的第一层包含重定向的配置，默认重定向到第一个子路由
-
-### 多级路由（三级路由及以上）
-
-#### 文件夹结构
-
-- 文件夹层级深
-
-```
-views
-├── multi-menu
-│   ├── first
-│   │   ├── child
-│   │   │   └── index.tsx
-│   ├── second
-│   │   ├── child
-│   │   │   ├── home
-│   │   │   │   └── index.tsx
-```
-
-- 两层文件夹层级（推荐）
-
-```
-views
-├── multi-menu
-│   ├── first_child
-│   │   └── index.tsx
-│   ├── second_child_home
-│   │   └── index.tsx
-```
-
-> 通过下划线符号 `_` 来分割路由层级，这样可以避免文件夹层级过深
-
-#### 生成的路由
-
-```ts
-{
-  name: 'multi-menu',
-  path: '/multi-menu',
-  component: 'layout.base',
-  meta: {
-    title: 'multi-menu'
-  },
-  children: [
-    {
-      name: 'multi-menu_first',
-      path: 'first',
-      meta: {
-        title: 'multi-menu_first'
-      },
-      children: [
-        {
-          name: 'multi-menu_first_child',
-          path: '/child',
-          component: 'view.multi-menu_first_child',
-          meta: {
-            title: 'multi-menu_first_child'
-          }
-        }
-      ]
-    },
-    {
-      name: 'multi-menu_second',
-      path: 'second',
-      meta: {
-        title: 'multi-menu_second'
-      },
-      children: [
-        {
-          name: 'multi-menu_second_child',
-          path: 'child',
-          meta: {
-            title: 'multi-menu_second_child'
-          },
-          children: [
-            {
-              name: 'multi-menu_second_child_home',
-              path: 'home',
-              component: 'view.multi-menu_second_child_home',
-              meta: {
-                title: 'multi-menu_second_child_home'
-              }
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-```
-
-> 如果路由层级大于 2，生成的路由数据是一个递归结构
-
-#### 转换成的React路由
-
-```ts
-{
-  name: 'multi-menu',
-  path: '/multi-menu',
-  component: BaseLayout,
-  loader: ()=>redirect('/multi-menu/first'),
-  handle: {
-    title: 'multi-menu'
-  },
-  children: [
-    {
-      name: 'multi-menu_first',
-      path: 'first',
-      loader:()=>redirect('child')},
-      handle: {
-        title: 'multi-menu_first'
-      },
-      children:[
-     {
-      name: 'multi-menu_first_child',
-      path: 'child',
-      lazy: () => import('@/views/multi-menu/first_child/index.tsx'),
-      handle: {
-        title: 'multi-menu_first_child'
-      }
-     },
-      ]
-    },
-    {
-      name: 'multi-menu_second',
-      path: 'second',
-      loader:()=>redirect('child'),
-      handle: {
-        title: 'multi-menu_second'
-      },
-      children:[
-     {
-      name: 'multi-menu_second_child',
-      path: 'child',
-      loader:()=>redirect('home'),
-      handle: {
-        title: 'multi-menu_second_child'
-      },
-      children:[{
-      {
-      name: 'multi-menu_second_child_home',
-      path: 'home',
-      lazy: () => import('@/views/multi-menu/second_child_home/index.tsx'),
-      handle: {
-        title: 'multi-menu_second_child_home'
-      }
-      }
-      }]
-     } ,
-      ]
-    },
-  ]
-},
-```
-
-## 访问`meta`
-
-```tsx
-import { useMatches } from "react-router-dom";
-
-const matches = useMatches();
-const meta= matches[matches.length - 1].handle;
-```
-- [相关链接](https://reactrouter.com/en/main/hooks/use-matches)
-
-> 转换的 React 路由只有两层，第一层是布局组件，第二层是重定向路由或者页面路由
-
-### 忽略文件夹的聚合路由
-
-以下划线 `_` 开头的文件夹名称会被忽略，不会出现在路由中，其下的文件会被聚合到上一级的路由中
-
-#### 文件夹结构
-
-```
-views
-├── _error
-│   ├── 403
-│   │   └── index.tsx
-│   ├── 404
-│   │   └── index.tsx
-│   ├── 500
-│   │   └── index.tsx
-```
-
-#### 生成的路由
-
-```ts
-{
-  name: '403',
-  path: '/403',
-  component: 'layout.base$view.403',
-  meta: {
-    title: '403'
-  }
-},
-{
-  name: '404',
-  path: '/404',
-  component: 'layout.base$view.404',
-  meta: {
-    title: '404'
-  }
-},
-{
-  name: '500',
-  path: '/500',
-  component: 'layout.base$view.500',
-  meta: {
-    title: '500'
-  }
-},
-```
-
-### 参数路由
-
-#### 文件夹结构
-
-```
-views
-├── user
-│   └── [id].tsx
-```
-
-#### 生成的路由
-
-```ts
-{
-  name: 'user',
-  path: '/user/:id',
-  component: 'layout.base$view.user',
-  meta: {
-    title: 'user'
-  }
-}
-```
-
-
-
-
-#### 高级的参数路由
-
-```ts
-import type { RouteKey } from "@elegant-router/types";
-
-ElegantReactRouter({
-  routePathTransformer(routeName, routePath) {
-    const routeKey = routeName as RouteKey;
-
-    if (routeKey === "user") {
-      return "/user/:id(\\d+)";
-    }
-
-    return routePath;
-  },
-});
-```
-
-### 自定义路由
-
-自定义路由只用于生成路由声明，不会生成路由文件，需要手动创建路由文件
-
-#### 自定义路由配置
-
-```ts
-ElegantVueRouter({
-  customRoutes: {
-    map: {
-      root: "/",
-      notFound: "*",
-    },
-    names: ["two-level_route"],
-  },
-});
-```
-
-**生成的路由key**
-
-```ts
-type RouteMap = {
-  root: "/";
-  notFound: "*";
-  "two-level": "/two-level";
-  "two-level_route": "route";
-};
-
-type CustomRouteKey = "root" | "notFound" | "two-level" | "two-level_route";
-```
-
-#### 自定义路由的component
-
-**复用已经存在的页面路由component**
-
-```ts
-import type { CustomRoute } from "@elegant-router/types";
-
-const customRoutes: CustomRoute[] = [
-  {
-    name: "root",
-    path: "/",
-    redirectTo: {
-      name: "403",
-    },
-  },
-  {
-    name: "not-found",
-    path: "*",
-    component: "$view.404",
-  },
-  {
-    name: "two-level",
-    path: "/two-level",
-    component: "layout.base",
-    children: [
-      {
-        name: "two-level_route",
-        path: "route",
-        component: "view.about",
-      },
-    ],
-  },
-];
-```
-
-
-
-## 插件配置
-
-`ElegantRouterOption`:
-
-| 属性名               | 说明                                                                                       | 类型                                                | 默认值                                 |
-| -------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------- | -------------------------------------- |
-| cmd                  | 项目根目录                                                                                 | `string`                                            | `process.cwd()`                        |
-| pageDir              | 页面文件夹相对根目录的路径                                                                 | `string`                                            | `"src/pages"`                          |
-| alias                | 别名，可用于路由导入文件的路径替换                                                         | `Record<string, string>`                            | `{ "@": "src" }`                       |
-| pagePatterns         | 路由页面文件匹配规则 (匹配语法参照 [micromatch](https://github.com/micromatch/micromatch)) | `string[]`                                          | `["**‍/index.tsx", "**‍/[[]*[]].tsx"]` |
-| pageExcludePatterns  | 路由页面文件排除规则 (默认排除文件夹 components 下作为路由页面文件)                        | `string[]`                                          | `["**‍/components/**"]`                |
-| routeNameTransformer | 路由名称转换函数 (默认是以下划线连接的文件夹名称)                                          | `(routeName: string) => string`                     | `routeName => routeName`               |
-| routePathTransformer | 路由路径转换函数                                                                           | `(transformedName: string, path: string) => string` | `(_transformedName, path) => path`     |
-
-`ElegantVueRouterOption`:
-
-> 继承自 `ElegantRouterOption`
-
-| 属性名           | 说明                                                                           | 类型                                               | 默认值                                                                                       |
-| ---------------- | ------------------------------------------------------------------------------ | -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| dtsDir           | 生成的路由类型声明文件的相对根目录路径                                         | `string`                                           | `"src/typings/elegant-router.d.ts"`                                                          |
-| importsDir       | 生成的路由导入文件的相对根目录路径                                             | `string`                                           | `"src/router/elegant/imports.ts"`                                                            |
-| lazyImport       | 是否使用懒加载导入                                                             | `(routeName: string) => boolean`                   | `_name => true`                                                                              |
-| constDir         | 生成的路由定义文件的相对根目录路径                                             | `string`                                           | `"src/router/elegant/routes.ts"`                                                             |
-| customRoutes     | 自定义路由的名称和路径映射表（只会生成路由类型）                               | `{ map: Record<string, string>; names: string[] }` | `{ map: { root: "/", notFound: "/:pathMatch(\*)\*" }, names: []}`                            |
-| layouts          | 布局组件的名称和文件路径映射表                                                 | `Record<string, string>`                           | `{ base: "src/layouts/base-layout/index.tsx", blank: "src/layouts/blank-layout/index.tsx" }` |
-| defaultLayout    | 生成路由定义里面的默认布局组件 ( 默认取`layouts`的第一个布局)                  | `string`                                           | `"base"`                                                                                     |
-| layoutLazyImport | 是否使用懒加载导入布局组件                                                     | `(layoutName: string) => boolean`                  | `_name => false`                                                                             |
-| transformDir     | 路由转换文件的相对根目录路径 (将生成约定的路由定义转换成 react-router 的 routes) | `string`                                           | `"src/router/elegant/transform.ts"`                                                          |
-| onRouteMetaGen   | 路由元信息生成函数                                                             | `(routeName: string) => Record<string, string>`    | `routeName => ({ title: routeName })`                                                        |
-
-## 注意事项
-
-- 文件夹的命名方式：只能包含 字母、数字、短横线、下划线，不能包含其他特殊字符
-
-  > 下划线是路由层级的切割标识，短横线用于在一级路由中连接多个单词
-
-## Author
-
-<table>
-  <tr>
-    <td>
-      <img src="https://avatars.githubusercontent.com/u/155351881?v=4" width="100">
-    </td>
-    <td>
-      Ohh<br />
-      <span>1509326266@qq.com</span><br />
-      <a href="https://github.com/mufeng889">https://github.com/mufeng889</a>
-    </td>
-  </tr>
-</table>  
-
-
-## License
-
-[MIT](https://choosealicense.com/licenses/mit/)  
+通过这个**类似 Next.js 文件式路由**插件，你可以**用最少的配置**，快速在 React 项目里享受“目录即页面”带来的便利；同时还能保留对 React Router 特性的兼容，部署则只需静态服务即可。更多细节和进阶指南，敬请访问 [文档](https://react-docs.soybeanjs.cn/routes)，希望它能为你的前端开发带来一点新的思路与灵感。

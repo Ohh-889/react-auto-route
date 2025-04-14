@@ -1,720 +1,163 @@
 # ElegantRouter
 
-English | [中文](./README.zh_CN.md)
+English | [中文文档](./README.zh-CN.md)
 
 ## Introduction
 
-ElegantRouter is a tool for creating routes based on the file system, which can automatically generate route definitions, route file imports and route-related type definitions. Just create the route file according to the agreed rules, without adding any additional configuration in the route file.
+This document introduces a **file-based routing plugin inspired by Next.js**, designed specifically for React projects that **do not require Node.js or SSR**. It uses a **convention-over-configuration** approach to automatically generate routes based on the file structure under the `pages` directory.
 
-### Differences and similarities
+For complete documentation, please visit:  
+👉 **[https://react-docs.soybeanjs.cn/routes](https://react-docs.soybeanjs.cn/routes)**
 
-The main difference between ElegantRouter and other file system-based routing tools is that:
+---
 
-1. Other tools have complex configuration rules, and the route data is a black box, which is difficult to customize.
-2. ElegantRouter follows the api-first principle and automates the process of configuring routes.
+## Why This Plugin?
 
-Taking configuring react routes as an example, the traditional way of creating page routes requires the following steps:
+- **No Node.js Required – Perfect for Static Deployments**  
+  Unlike Next.js, which relies on Node.js for SSR (Server-Side Rendering) or SSG (Static Site Generation), this plugin is designed to work in **pure frontend environments**. Just build your project with Vite, Webpack, or any other bundler, and deploy the output to any static hosting platform or CDN.
 
-1. Import the layout component
-2. Import the page component
-3. Define the route in the route configuration file
+- **Convention-Based Routing – Files as Routes**  
+  Inspired by Next.js, this plugin eliminates the need for manually maintaining route configuration files. Just follow a simple folder structure under `pages`, and the plugin will automatically generate the correct routing configuration.
 
-Although these steps are not complicated, in actual development, they are repetitive and need to be done manually. In addition, the maintenance of route names and paths is very troublesome, there is no clear agreement on the route definition of the layout and page components, resulting in a messy route definition.
-And using ElegantRouter, you only need to create the route file according to the agreed rules, you can automatically generate the route in the specified route file.
+- **Optimized for Chinese Frontend Workflow**  
+  In many Chinese frontend projects, it’s common to place pages directly under `src/pages`. This plugin matches that convention and integrates seamlessly with React Router, allowing you to get started without changing your existing habits.
 
-### ElegantRouter's route configuration process
+- **Fully Compatible with React Router**  
+  Built on top of [React Router](https://reactrouter.com/), the plugin preserves all native features and APIs. If needed, you can still manually configure or extend routes using standard React Router logic.
 
-You only need to create a route file according to the agreed rules to generate the route in the specified route file.
+---
+
+## Key Features
+
+1. **Auto-Generated Routes Based on File Structure**  
+   No need to manually configure `path`, `element`, or `children`. The plugin scans the `pages` directory and generates a nested route configuration automatically.
+
+2. **Supports Dynamic Routing / Params**  
+   Files named `[id].tsx` or `[...slug].tsx` are treated as dynamic routes. Use `useParams()` from React Router (or utility helpers) to access route parameters inside your components.
+
+3. **Supports Nested Routes**  
+   Example structure:
+   ```
+   pages/
+     user/
+       profile.tsx
+       settings.tsx
+   ```
+   Generates routes like `/user/profile` and `/user/settings` automatically without writing `<Route>` manually.
+
+4. **Customizable with Hooks and Guards**  
+   Need route guards, auth checks, or data preloading? You can still use `useLocation`, `useNavigate`, `Outlet`, etc., just like in native React Router projects. The plugin doesn't lock you in.
+
+5. **Compatible with Modern Toolchains**  
+   - Works with Vite, Webpack, Parcel, and other build tools.  
+   - Doesn't require a specific framework scaffold. Works with `create-react-app`, custom setups, or enterprise-grade applications.
+
+---
 
 ## Installation
 
-### Install the react version (other frameworks to come...)
+> 📘 **Full documentation and advanced usage**:  
+> [https://react-docs.soybeanjs.cn/routes](https://react-docs.soybeanjs.cn/routes)
+
+### 1. Install the Plugin
 
 ```bash
-pnpm install @ohh-889/react-auto-route
+# using npm
+npm install --save-dev @soybean-react/vite-plugin-react-router
+
+# or yarn/pnpm
+yarn add --dev @soybean-react/vite-plugin-react-router
 ```
 
-## Attention item
-
-### `react-router-dom`
-
-- Versions that require installation above 'v6' are not compatible with the lower version of 'react-router-dom'
-
-### Lazy loading by route
-
-- Page routing
-
-``` ts
-
-export function Component() {
-  return <div>Component</div>;
-}
-
-```
-- Be sure to export with 'export' as the function name 'Component'
-
-#### If you want to use the default export
-
-**1. Override the lazy method**
-
-```tsx
-lazy:async ()=>{
- const component=await import('@/views/Component.tsx')
-
- return {
-  Component:component.default
-  ErrorBoundary:ErrorBoundary,
- }
-//  or you can use the following code
-const Component=component.default
-return {
-  element:<Component />,
-  ErrorBoundary:ErrorBoundary,
-}
-}
-```
-- If you use ts, change the ts type declaration
-
-
-**2. Handle route lazy loading by yourself**
-
-- Use an 'option' of the route loader
-
-`optsunstable_datastrategy`
-
-- [related links](https://reactrouter.com/en/main/routers/create-browser-router#optsunstable_datastrategy) 
-
-
-## Best practice
-
-
-- **react-soybean-admin**
-  - [Preview address](https://github.com/mufeng889/react-soybean-admin)
-
-- **Source of inspiration**
-
-  - [elegant-router](https://github.com/soybeanjs/elegant-router)
-
-> **elegant-router best practice**
-> `soybean-admin` [Preview address](https://github.com/soybeanjs/soybean-admin)
-> - This is a 'vue' technology stack back-end management system project
-
-## Use
-
-### Introduce the plugin in Vite
+### 2. Configure in Vite
 
 ```ts
-import { fileURLToPath, URL } from "node:url";
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import ElegantVueRouter from "@@ohh-889/react-auto-route";
+// vite.config.ts
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import FileBasedRouter from '@soybean-react/vite-plugin-react-router';
 
 export default defineConfig({
   plugins: [
     react(),
-    ElegantreactRouter({
-      alias: {
-        "@": "src",
-      },
-      layouts: {
-        base: "src/layouts/base-layout/index.tsx",
-        blank: "src/layouts/blank-layout/index.tsx",
-      },
-    }),
+    FileBasedRouter({
+      pagesDir: 'src/pages', // Optional: customize your page directory
+      // ... other options
+    })
   ],
-  resolve: {
-    alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
-    },
-  },
 });
 ```
 
-### Integration in react Router
+### 3. Create the `pages` Directory
 
-**src/router/routes/index.ts**
-
-```ts
-import type { ElegantRoute, CustomRoute } from "@elegant-router/types";
-import { generatedRoutes } from "../elegant/routes";
-import { layouts, views } from "../elegant/imports";
-import { transformElegantRoutesToReactRoutes } from "../elegant/transform";
-
-const customRoutes: CustomRoute[] = [
-  {
-    name: "root",
-    path: "/",
-    redirectTo: '/home',
-  },
-  {
-    name: "not-found",
-    path: "*",
-    component: "$view.404",
-  },
-];
-
-const elegantRoutes: ElegantRoute[] = [...customRoutes, ...generatedRoutes];
-
-export const routes = transformElegantRoutesToreactRoutes(
-  elegantRoutes,
-  layouts,
-  views
-);
+Example file structure:
+```
+src/
+  pages/
+    index.tsx          → '/'
+    about.tsx          → '/about'
+    user/
+      index.tsx        → '/user'
+      [id].tsx         → '/user/:id' (dynamic)
 ```
 
-**src/router/index.ts**
+The plugin will automatically convert these into route definitions.
 
-```ts
-import {createBrowserRouter} from 'react-router-dom'
-import { routes } from "./routes";
+### 4. Run Your App
 
-export const router=createBrowserRouter(builtinRoutes)
-```
+Start your development server and visit routes like `/`, `/about`, or `/user/123`. The corresponding components should load automatically.
 
+---
 
-**src/App.tsx**
+## FAQ
 
-```ts
-import { RouterProvider } from 'react-router-dom';
-import { router } from "@/router";
+### How is this different from React Router’s official file-based plugin?
 
-const App = () => {
-  return <RouterProvider router={reactRouter} />
-}
+React Router also offers [a file-based routing plugin](https://reactrouter.com/en/main/routers/picking-a-router). It’s powerful, but:
 
-```
+- It often assumes Node.js or SSR context (e.g. Remix/Next.js style).
+- Static-only deployments can be harder to configure.
+- Customization is more complex in some cases.
 
-### Starting the project
+This plugin **focuses on pure-SPA projects** and static hosting, with routing conventions tailored for teams that prefer simpler file-to-route mapping — especially common in the Chinese frontend ecosystem.
 
-After starting the project, the plugin will automatically generate the src/router/elegant directory, and the files in this directory are the automatically generated route import, route definition and route transformation files.
+---
 
-## Configuration
+### Does it support layouts?
 
-### Route file creation
+Yes! You can implement nested layouts using the folder structure and React Router's `<Outlet>`. You can also define shared `layout.tsx` files in specific directories. For examples, see the [documentation](https://react-docs.soybeanjs.cn/routes#layout-layout-support).
 
-You can configure `pagePatterns` to specify the rules for creating route files. The rules for creating route files are regular expressions, and if the path of a route file matches the regular expression, the route file will be created.
+---
 
-Default: all files named `index.tsx`、`[id].tsx`、`[module].tsx`, etc. below the folder.
+### Can I deploy it without any backend or Node.js server?
 
-```ts
-pagePatterns: ["**‍/index.tsx", "**‍/[[]*[]].tsx"];
-```
+Absolutely. The output is a fully static frontend bundle. Deploy it to:
 
-### One-level route (single-level route)
+- Netlify, Vercel, GitHub Pages  
+- OSS/CDN platforms (like Alibaba Cloud, Qiniu, etc.)  
+- Any Nginx or static HTTP server
 
-#### Folder structure
+For correct behavior on page refresh (like `/user/123`), make sure your server is configured to fallback to `index.html`.
 
-```
-views
-├── about
-│   └── index.tsx
-```
+---
 
-#### Generated routes
+### Is SSR or SSG supported?
 
-```ts
-{
-  name: 'about',
-  path: '/about',
-  component: 'layout.base$view.about',
-  meta: {
-    title: 'about'
-  }
-},
-```
+Not directly. This plugin is for client-side rendering (SPA). If your project requires SSR/SSG, consider using Next.js, Remix, or similar frameworks. This plugin is ideal for teams **not using Node or SSR**.
 
-> it is a single level route, to add layout, the component props combines the layout and view component, split by the dollar sign "$"
+---
 
-#### Transformed react routes
+## Resources
 
-```ts
-{
-  path: '/about',
-  component: BaseLayout,
-  ErrorBoundary: ErrorBoundary,
-  children: [
-    {
-      id: 'about',
-      index:true,
-      lazy: () => import('@/pages/about/index.tsx'),
-      handle: {
-        title: 'about'
-      }
-    }
-  ]
-},
-```
+- 📘 **Full Documentation**: [https://react-docs.soybeanjs.cn/routes](https://react-docs.soybeanjs.cn/routes)  
+  Includes nested layouts, dynamic routing, advanced usage, and more.
+- 💬 Found a bug or want a new feature? Feel free to submit an [Issue/PR](https://github.com/soybeanjs/soybeanjs/issues) on GitHub.
 
-### Secondary route
+---
 
-#### Folder structure
+By using this **Next.js-style file-based router for React**, you can **achieve automatic route generation** with minimal configuration, full React Router compatibility, and flexible static deployment.
 
-```
-views
-├── list
-│   ├── home
-│   │   └── index.tsx
-│   ├── detail
-│   │   └── index.tsx
-```
+If you're looking for a clean, SPA-friendly alternative to manual routing, this plugin could be the perfect fit.
 
-> Please don't have the following index.tsx on the same level as the folder, this is not part of the agreed upon rules
-
-**Error example**
-
-```
-views
-├── list
-│   ├── index.tsx
-│   ├── detail
-│   │   └── index.tsx
-```
-
-#### Generated routes
-
-```ts
-{
-  name: 'list',
-  path: '/list',
-  component: 'layout.base',
-  meta: {
-    title: 'list'
-  },
-  children: [
-    {
-      name: 'list_home',
-      path: 'home',
-      component: 'view.list_home',
-      meta: {
-        title: 'list_home'
-      }
-    },
-    {
-      name: 'list_detail',
-      path: 'detail',
-      component: 'view.list_detail',
-      meta: {
-        title: 'list_detail'
-      }
-    },
-  ]
-}
-```
-
-> There are two layers of route data for secondary routes, the first layer of route is the layout component and the second layer of route is the page component
-
-#### Transformed react routes
-
-```ts
-{
-  name: 'list',
-  path: '/list',
-  component: BaseLayout,
-  ErrorBoundary: ErrorBoundary,
-  loader: ()=>redirect('/list/home'),
-  handle: {
-    title: 'list'
-  },
-  children: [
-   {
-      name: 'list_home',
-      path: 'home',
-      lazy: () => import('@/views/list/home/index.tsx'),
-      handle: {
-        title: 'list_home'
-      }
-    },
-    {
-      name: 'list_detail',
-      path: 'detail',
-      lazy: () => import('@/views/list/detail/index.tsx'),
-      handle: {
-        title: 'list_detail'
-      }
-    }
-  ]
-},
-```
-
-> the first layer of route data contains the redirection configuration, which by default redirects to the first sub-route
-
-### Multi-level route (level 3 route and above)
-
-#### Folder structure
-
-- The folder hierarchy is deep
-
-```
-views
-├── multi-menu
-│   ├── first
-│   │   ├── child
-│   │   │   └── index.tsx
-│   ├── second
-│   │   ├── child
-│   │   │   ├── home
-│   │   │   │   └── index.tsx
-```
-
-- Two-tier folder hierarchy (recommended)
-
-```
-views
-├── multi-menu
-│   ├── first_child
-│   │   └── index.tsx
-│   ├── second_child_home
-│   │   └── index.tsx
-```
-
-> The route hierarchy is split by the underscore symbol "\_", which prevents the folder hierarchy from being too deep.
-
-#### Generated routes
-
-```ts
-{
-  name: 'multi-menu',
-  path: '/multi-menu',
-  component: 'layout.base',
-  meta: {
-    title: 'multi-menu'
-  },
-  children: [
-    {
-      name: 'multi-menu_first',
-      path: 'first',
-      meta: {
-        title: 'multi-menu_first'
-      },
-      children: [
-        {
-          name: 'multi-menu_first_child',
-          path: 'child',
-          component: 'view.multi-menu_first_child',
-          meta: {
-            title: 'multi-menu_first_child'
-          }
-        }
-      ]
-    },
-    {
-      name: 'multi-menu_second',
-      path: 'second',
-      meta: {
-        title: 'multi-menu_second'
-      },
-      children: [
-        {
-          name: 'multi-menu_second_child',
-          path: 'child',
-          meta: {
-            title: 'multi-menu_second_child'
-          },
-          children: [
-            {
-              name: 'multi-menu_second_child_home',
-              path: 'home',
-              component: 'view.multi-menu_second_child_home',
-              meta: {
-                title: 'multi-menu_second_child_home'
-              }
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-```
-
-> if the route level is greater than 2, the generated route data is a recursive structure
-
-#### Transformed react routes
-
-```ts
-{
-  name: 'multi-menu',
-  path: '/multi-menu',
-  component: BaseLayout,
-  redirect: {
-    name: 'multi-menu_first'
-  },
-  meta: {
-    title: 'multi-menu'
-  },
-  children: [
-    {
-      name: 'multi-menu_first',
-      path: 'first',
-      loader:()=>redirect('child')},
-      handle: {
-        title: 'multi-menu_first'
-      },
-      children: [
-     {
-      name: 'multi-menu_first_child',
-      path: 'child',
-      lazy: () => import('@/views/multi-menu/first_child/index.tsx'),
-      handle: {
-        title: 'multi-menu_first_child'
-      }
-    },
-      ]
-    },
-    {
-      name: 'multi-menu_second',
-      path: 'second',
-      loader:()=>redirect('child'),
-      handle: {
-        title: 'multi-menu_second'
-      },
-      children:[
-        {
-      name: 'multi-menu_second_child',
-      path: 'child',
-      loader:()=>redirect('home'),
-      handle: {
-        title: 'multi-menu_second_child'
-      },
-      children:[
-      {
-      name: 'multi-menu_second_child_home',
-      path: 'home', 
-      lazy: () => import('@/views/multi-menu/second_child_home/index.tsx'),
-      handle: {
-        title: 'multi-menu_second_child_home'
-      }
-      }
-      ]
-    },
-      ]
-    },
-    
-    
-  ]
-},
-```
-
-## Access`meta`
-
-```tsx
-import { useMatches } from "react-router-dom";
-
-const matches = useMatches();
-const meta= matches[matches.length - 1].handle;
-```
-- [related links](https://reactrouter.com/en/main/hooks/use-matches)
-
-> the transformed react routes only has two levels, the first level is the layout component, and the second level is the redirect routes or the page routes
-
-### Ignore folder aggregation routes
-
-Folder names that begin with an underscore "\_" will be ignored
-
-#### Folder structure
-
-```
-views
-├── _error
-│   ├── 403
-│   │   └── index.tsx
-│   ├── 404
-│   │   └── index.tsx
-│   ├── 500
-│   │   └── index.tsx
-```
-
-#### Generated routes
-
-```ts
-{
-  name: '403',
-  path: '/403',
-  component: 'layout.base$view.403',
-  meta: {
-    title: '403'
-  }
-},
-{
-  name: '404',
-  path: '/404',
-  component: 'layout.base$view.404',
-  meta: {
-    title: '404'
-  }
-},
-{
-  name: '500',
-  path: '/500',
-  component: 'layout.base$view.500',
-  meta: {
-    title: '500'
-  }
-},
-```
-
-### Parameter Route
-
-#### Folder structure
-
-```
-views
-├── user
-│   └── [id].tsx
-```
-
-#### Generated routes
-
-```ts
-{
-  name: 'user',
-  path: '/user/:id',
-  component: 'layout.base$view.user',
-  props: true,
-  meta: {
-    title: 'user'
-  }
-}
-```
-
-#### Advanced parameter route
-
-```ts
-import type { RouteKey } from "@elegant-router/types";
-
-ElegantreactRouter({
-  routePathTransformer(routeName, routePath) {
-    const routeKey = routeName as RouteKey;
-
-    if (routeKey === "user") {
-      return "/user/:id(\\d+)";
-    }
-
-    return routePath;
-  },
-});
-```
-
-### Custom Route
-
-the custom route is only used to generate the route declaration, and the route file is not generated, you should create the route file manually.
-
-#### Config custom routes
-
-```ts
-ElegantreactRouter({
-  customRoutes: {
-    map: {
-      root: "/",
-      notFound: "*",
-    },
-    names: ["two-level_route"],
-  },
-});
-```
-
-**Generated CustomRouteKey**
-
-```ts
-type RouteMap = {
-  root: "/";
-  notFound: "*";
-  "two-level": "/two-level";
-  "two-level_route": "route";
-};
-
-type CustomRouteKey = "root" | "notFound" | "two-level" | "two-level_route";
-```
-
-#### Custom routes's component
-
-**it can use existing page components as the route component**
-
-```ts
-import type { CustomRoute } from "@elegant-router/types";
-
-const customRoutes: CustomRoute[] = [
-  {
-    name: "root",
-    path: "/",
-    redirectTo: {
-      name: "403",
-    },
-  },
-  {
-    name: "not-found",
-    path: "*",
-    component: "layout.base$view.404",
-  },
-  {
-    name: "two-level",
-    path: "/two-level",
-    component: "layout.base",
-    children: [
-      {
-        name: "two-level_route",
-        path: "/two-level/route",
-        component: "view.about",
-      },
-    ],
-  },
-];
-```
-
-## Plugin Option
-
-`ElegantRouterOption`:
-
-| property             | instruction                                                                                                           | type                                                | default value                          |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | -------------------------------------- |
-| cmd                  | the root directory of the project                                                                                     | `string`                                            | `process.cwd()`                        |
-| pageDir              | the relative path to the root directory of the pages                                                                  | `string`                                            | `"src/views"`                          |
-| alias                | alias, it can be used for the page and layout file import path                                                        | `Record<string, string>`                            | `{ "@": "src" }`                       |
-| pagePatterns         | the patterns to match the page files (the match syntax follow [micromatch](https://github.com/micromatch/micromatch)) | `string[]`                                          | `["**‍/index.react", "**‍/[[]*[]].react"]` |
-| pageExcludePatterns  | the patterns to exclude the page files (The default exclusion folder `components` is used as the routing page file.)  | `string[]`                                          | `["**‍/components/**"]`                |
-| routeNameTransformer | transform the route name (The default is the name of the folder connected by an underscore)                           | `(routeName: string) => string`                     | `routeName => routeName`               |
-| routePathTransformer | transform the route path                                                                                              | `(transformedName: string, path: string) => string` | `(_transformedName, path) => path`     |
-
-`ElegantreactRouterOption`:
-
-> extends `ElegantRouterOption`
-
-| property         | instruction                                                                                                                                  | type                                               | default value                                                                                |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| dtsDir           | the declaration file directory of the generated routes                                                                                       | `string`                                           | `"src/typings/elegant-router.d.ts"`                                                          |
-| importsDir       | the directory of the imports of routes                                                                                                       | `string`                                           | `"src/router/elegant/imports.ts"`                                                            |
-| lazyImport       | whether the route is lazy import                                                                                                             | `(routeName: string) => boolean`                   | `_name => true`                                                                              |
-| constDir         | the directory of the route const                                                                                                             | `string`                                           | `"src/router/elegant/routes.ts"`                                                             |
-| customRoutes     | define custom routes, which's route only generate the route declaration                                                                      | `{ map: Record<string, string>; names: string[] }` | `{ map: { root: "/", notFound: "*" }, names: []}`                            |
-| layouts          | the name and file path of the route layouts                                                                                                  | `Record<string, string>`                           | `{ base: "src/layouts/base-layout/index.tsx", blank: "src/layouts/blank-layout/index.tsx" }` |
-| defaultLayout    | the default layout name used in generated route const ( takes the first layout of `layouts` by default.)                                     | `string`                                           | `"base"`                                                                                     |
-| layoutLazyImport | whether the route is lazy import                                                                                                             | `(layoutName: string) => boolean`                  | `_name => false`                                                                             |
-| transformDir     | the directory of the routes transform function (Converts the route definitions of the generated conventions into routes for the react-router.) | `string`                                           | `"src/router/elegant/transform.ts"`                                                          |
-| onRouteMetaGen   | the route meta generator                                                                                                                     | `(routeName: string) => Record<string, string>`    | `routeName => ({ title: routeName })`                                                        |
-
-## Caveat
-
-- Folder naming: can only contain letters, numbers, dash, underscore, and no other special characters
-
-  > The underscore is a cut identifier for the routing hierarchy, and the short horizontal line is used to connect multiple words in a one-level route
-
-
-
-## Author
-
-<table>
-  <tr>
-    <td>
-      <img src="https://avatars.githubusercontent.com/u/155351881?v=4" width="100">
-    </td>
-    <td>
-      Ohh<br />
-      <span>1509326266@qq.com</span><br />
-      <a href="https://github.com/mufeng889">https://github.com/mufeng889</a>
-    </td>
-  </tr>
-</table>  
- 
-## License
-
-[MIT](https://choosealicense.com/licenses/mit/) 
+Check out the full docs here 👉 [https://react-docs.soybeanjs.cn/routes](https://react-docs.soybeanjs.cn/routes)  
+Happy coding! ✨
