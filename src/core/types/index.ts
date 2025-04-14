@@ -1,17 +1,5 @@
 export interface ElegantRouterOption {
   /**
-   * the root directory of the project
-   *
-   * @default process.cwd()
-   */
-  cwd: string;
-  /**
-   * the relative path to the root directory of the pages
-   *
-   * @default 'src/views'
-   */
-  pageDir: string;
-  /**
    * alias
    *
    * it can be used for the page and layout file import path
@@ -23,24 +11,42 @@ export interface ElegantRouterOption {
    */
   alias: Record<string, string>;
   /**
-   * the patterns to match the page files
+   * the root directory of the project
    *
-   * @example
-   *   index.vue, '[id.vue]';
-   *
-   * @default ['**‍/index.vue', '**‍/[[]*[]].vue']
-   * @link the detail syntax: https://github.com/micromatch/micromatch
+   * @default process.cwd()
    */
-  pagePatterns: string[];
+  cwd: string;
+  /**
+   * show log
+   *
+   * @default true
+   */
+  log: boolean;
+  /**
+   * the relative path to the root directory of the pages
+   *
+   * @default 'src/pages'
+   */
+  pageDir: string;
   /**
    * the patterns to exclude the page files
    *
    * @example
-   *   components / a / index.vue;
+   *   components / a / index.tsx;
    *
    * @default ['**‍/components/**']
    */
   pageExcludePatterns: string[];
+  /**
+   * the patterns to match the page files
+   *
+   * @example
+   *   index.tsx, '[id.tsx]';
+   *
+   * @default ['**‍/index.tsx', '**‍/[[]*[]].tsx']
+   * @link the detail syntax: https://github.com/micromatch/micromatch
+   */
+  pagePatterns: string[];
   /**
    * transform the route name
    *
@@ -61,34 +67,32 @@ export interface ElegantRouterOption {
    * @param transformedName the transformed route name
    * @param path the route path
    */
-  routePathTransformer: (transformedName: string, path: string) => string;
-  /**
-   * show log
-   *
-   * @default true
-   */
-  log: boolean;
+  routePathTransformer: (transformedName: string, path: string | null) => string | null;
 }
 
 export interface ElegantRouterFile {
   /** the glob of the page */
-  glob: string;
+  componentName: string;
   /** the full path of the page */
   fullPath: string;
+  /** the glob of the page */
+  glob: string;
+  /** the import alias path of the page file */
+  importAliasPath: string;
   /**
    * the import path of the page file
    *
    * - the path is relative to the root directory of the project
    * - if set alias for the page directory, the path will be relative to the alias
    */
-  importPath: string;
+  importPath: string | null;
   /**
    * the route name transformed from the glob
    *
    * - transform the path splitter "/" of the glob to the underline "_"
    * - if the glob is start with "_", this part will be ignored
    * - if the glob contains uppercase letters, it will be transformed to lowercase letters
-   * - if the glob is like "demo/[id].vue", the "[id]" will be transformed to param "id" of the route
+   * - if the glob is like "demo/[id].tsx", the "[id]" will be transformed to param "id" of the route
    *
    * @example
    *   "a/b/c" => "a_b_c"
@@ -101,7 +105,7 @@ export interface ElegantRouterFile {
    * the route path transformed from the glob
    *
    * - transform the underline "_" to the path splitter "/"
-   * - if the glob is like "demo/[id].vue", the "[id]" will be transformed to ":id" of the route path
+   * - if the glob is like "demo/[id].tsx", the "[id]" will be transformed to ":id" of the route path
    *
    * @example
    *   "a/b/c" => "/a/b/c"
@@ -109,14 +113,6 @@ export interface ElegantRouterFile {
    *   "a/b/[id]" => "/a/b/:id"
    */
   routePath: string;
-  /**
-   * the route param key of the route
-   *
-   * if the glob is like "demo/[id].vue", "id" will be the param key of the route
-   *
-   * @default ''
-   */
-  routeParamKey: string;
 }
 
 /**
@@ -124,7 +120,7 @@ export interface ElegantRouterFile {
  *
  * Map<name, path>
  */
-export type ElegantRouterNamePathMap = Map<string, string>;
+export type ElegantRouterNamePathMap = Map<string, string | null>;
 
 /**
  * the map of the route path and the route name
@@ -134,11 +130,13 @@ export type ElegantRouterNamePathMap = Map<string, string>;
  * @example
  *   ['a', '/a'];
  */
-export type ElegantRouterNamePathEntry = [string, string];
+export type ElegantRouterNamePathEntry = [string, string | null];
 
 /** the tree of the route */
 export interface ElegantRouterTree {
-  routeName: string;
-  routePath: string;
   children?: ElegantRouterTree[];
+  fullPath: string | null;
+  matchedFiles: (string | null)[];
+  routeName: string;
+  routePath: string | null;
 }

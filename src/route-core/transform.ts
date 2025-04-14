@@ -1,45 +1,40 @@
-import path from 'node:path';
+import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
-import type { ElegantRouterNamePathEntry } from '../core';
+import path from 'node:path';
+
+import dedent from 'dedent';
+
 import { ensureFile } from '../shared/fs';
 import type { ElegantReactRouterOption } from '../types';
+
 import { createPrefixCommentOfGenFile } from './comment';
-import { getCustomRouteConfig } from './shared';
 
 /**
  * generate the transform file
  *
  * @param options
  */
-export async function genTransformFile(options: ElegantReactRouterOption, entries: ElegantRouterNamePathEntry[]) {
-  const code = getTransformCode(options, entries);
-
+export async function genTransformFile(options: ElegantReactRouterOption) {
   const transformPath = path.posix.join(options.cwd, options.transformDir);
+  if (existsSync(transformPath)) return;
+  const code = getTransformCode(options);
 
   await ensureFile(transformPath);
 
   await writeFile(transformPath, code);
 }
 
-function getTransformCode(options: ElegantReactRouterOption, entries: ElegantRouterNamePathEntry[]) {
+function getTransformCode(options: ElegantReactRouterOption) {
   const prefixComment = createPrefixCommentOfGenFile();
 
-  const { entries: customEntries } = getCustomRouteConfig(options, entries);
+  const code = dedent`${prefixComment}
 
-  const allEntries = [...customEntries, ...entries];
+import type { ElegantConstRoute } from '@soybean-react/vite-plugin-react-router';
+import type { RouteObject } from 'react-router-dom';
 
-  const code = `${prefixComment}
+import { errors, layouts, pages as views } from './imports';
 
-import type { IndexRouteObject, LazyRouteFunction,RouteObject } from "react-router-dom";
-import type { FunctionComponent } from 'react';
-import type { ElegantConstRoute } from '@ohh-889/react-auto-route';
-import type { RouteKey, RouteMap, RoutePath } from '@elegant-router/types';
-import { redirect as redirectTo } from 'react-router-dom';
-import ErrorBoundary from "${options.errorBoundaryPath||'../../../ErrorBoundary.tsx'}"
-
-type CustomRouteObject = Omit<RouteObject, 'Component' | 'index'> & {
-  Component?: React.ComponentType<any> | null;
-};
+const loadings = import.meta.glob(\`/${options.pageDir}/**/loading.tsx\`, { eager: true, import: 'default' });
 
 /**
  * transform elegant const routes to react routes
@@ -48,12 +43,8 @@ type CustomRouteObject = Omit<RouteObject, 'Component' | 'index'> & {
  * @param layouts layout components
  * @param views view components
  */
-export function transformElegantRoutesToReactRoutes(
-  routes: ElegantConstRoute[],
-  layouts: Record<string, LazyRouteFunction<CustomRouteObject>>,
-  views: Record<string, LazyRouteFunction<CustomRouteObject>>
-) {
-  return routes.flatMap(route => transformElegantRouteToReactRoute(route, layouts, views));
+export function transformElegantRoutesToReactRoutes(routes: ElegantConstRoute[]) {
+  return routes.flatMap(route => transformElegantRouteToReactRoute(route));
 }
 
 /**
@@ -63,198 +54,98 @@ export function transformElegantRoutesToReactRoutes(
  * @param layouts layout components
  * @param views view components
  */
-export function transformElegantRouteToReactRoute(
-  route: ElegantConstRoute,
-  layouts: Record<string, LazyRouteFunction<CustomRouteObject>>,
-  views: Record<string, LazyRouteFunction<CustomRouteObject>>
-): RouteObject {
-  const LAYOUT_PREFIX = 'layout.';
-  const VIEW_PREFIX = 'view.';
+export function transformElegantRouteToReactRoute(route: ElegantConstRoute): RouteObject {
   const ROUTE_DEGREE_SPLITTER = '_';
-  const FIRST_LEVEL_ROUTE_COMPONENT_SPLIT = '$';
 
-  function isLayout(component: string) {
-    return component.startsWith(LAYOUT_PREFIX);
+  function isRouteGroup(name: string) {
+    const lastName = name.split(ROUTE_DEGREE_SPLITTER).at(-1);
+    return lastName?.startsWith('(') && lastName?.endsWith(')');
   }
 
-  function getLayoutName(component: string) {
-    const layout = component.replace(LAYOUT_PREFIX, '');
+  const { children, matchedFiles, name, path, handle } = route;
 
-    if (!layouts[layout]) {
-      throw new Error(\`Layout component "\${layout}" not found\`);
-    }
+  // Get the error boundary component
+  const getErrorComponent = () => (matchedFiles[3] ? errors[matchedFiles[3]]() : errors.root());
 
-    return layout;
-  }
-
-  function isView(component: string) {
-    return component.startsWith(VIEW_PREFIX);
-  }
-
-  function getViewName(component: string) {
-    const view = component.replace(VIEW_PREFIX, '');
-
-    if (!views[view]) {
-      throw new Error(\`View component "\${view}" not found\`);
-    }
-
-    return view;
-  }
-
-  function isFirstLevelRoute(item: ElegantConstRoute) {
-    return !item.name.includes(ROUTE_DEGREE_SPLITTER);
-  }
-
-  function isSingleLevelRoute(item: ElegantConstRoute) {
-    return isFirstLevelRoute(item) && !item.children?.length;
-  }
-
-  function getSingleLevelRouteComponent(component: string) {
-    const [layout, view] = component.split(FIRST_LEVEL_ROUTE_COMPONENT_SPLIT);
-
+  // Convert route config, simplifying the logic for actions, loader, etc.
+  function convertConfig(m: any) {
+    const { action, loader, shouldRevalidate, default: Component } = m;
     return {
-      layout: layout ? getLayoutName(layout) : undefined,
-      view: getViewName(view)
+      action, // always use action
+      loader, // always use loader
+      shouldRevalidate,
+      Component
     };
   }
 
-  const { name, props, path, meta, component, children, redirect, layout, ...rest } = route;
+  // Get config for the route if available
+  async function getConfig(index: boolean = false) {
+    if (matchedFiles[0] && !index) {
+      const config = await layouts[matchedFiles[0]]();
+      return convertConfig(config);
+    }
+
+    let pageName = name;
+
+    if (pageName==='notFound') {
+          pageName = '404'
+    };
+
+    if (matchedFiles[1] && (!children?.length||index)) {
+      const config = await views[pageName]();
+
+      return convertConfig(config);
+    }
+
+    return null;
+  }
+
+  function getHandle(index: boolean = false) {
+    if ((matchedFiles[0]||isRouteGroup(name))&&!index) {
+      return null
+    }
+
+    return handle
+  }
+
+
 
   const reactRoute = {
-    id: name,
-    path,
-    handle: {
-      ...meta
-    },
     children: [],
-    ErrorBoundary
+    HydrateFallback: matchedFiles[2] ? loadings[matchedFiles[2]] : loadings[\`/${options.pageDir}/loading.tsx\`] ,
+    id: name,
+    handle: getHandle(),
+    lazy: async () => {
+      const ErrorBoundary = await getErrorComponent();
+
+      return {
+        ErrorBoundary: ErrorBoundary?.default,
+        ...(await getConfig())
+      };
+    },
+    path
   } as RouteObject;
 
-  try {
-    if (component) {
-      if (isSingleLevelRoute(route)) {
-        const { layout, view } = getSingleLevelRouteComponent(component);
-
-        if (layout) {
-          const singleLevelRoute: RouteObject = {
-            path,
-            lazy: layouts[layout],
-            ErrorBoundary,
-            children: [
-              {
-                id: name,
-                index: true,
-                lazy: views[view],
-                handle: {
-                  ...meta
-                },
-                ...rest
-              } as IndexRouteObject
-            ]
-          };
-
-          return singleLevelRoute;
-        }
-
-        return {
-          path,
-          lazy: views[view],
-          id: name,
-          ...rest
-        } as RouteObject;
-      }
-
-      if (isLayout(component)) {
-        if (layout) {
-          reactRoute.lazy = views[name];
-        } else {
-          const layoutName = getLayoutName(component);
-          reactRoute.lazy = layouts[layoutName];
-        }
-      }
-
-      if (isView(component)) {
-        const viewName = getViewName(component);
-        if (props) {
-          reactRoute.lazy = async () => {
-            const data = (await views[viewName]()).Component as FunctionComponent;
-            return {
-              Component: () => data(props),
-              ErrorBoundary: null
-            };
-          };
-        } else {
-          reactRoute.lazy = views[viewName];
-        }
-      }
-    } else if (!layout && !redirect) {
-      return Object.assign(reactRoute, rest);
-     }
-  } catch (error: any) {
-     console.error(\`Error transforming route "\${route.name}": \${error.toString()}\`);
-    return {};
-  }
-
   if (children?.length) {
-    reactRoute.children = children.flatMap(child => transformElegantRouteToReactRoute(child, layouts, views));
-    const defaultRedirectPath = redirect || getRedirectPath(path as string, children[0].path as string);
+    reactRoute.children = children.flatMap(child => transformElegantRouteToReactRoute(child));
 
-    reactRoute.children.unshift({
-      index: true,
-      loader: () => redirectTo(defaultRedirectPath),
-      ...rest
-    });
-  } else if (redirect) {
-    reactRoute.loader = () => redirectTo(redirect);
-  }
+    if (matchedFiles[1] && !isRouteGroup(name)) {
+      reactRoute.children.unshift({
+        handle: getHandle(true),
+        index: true,
+        lazy: async () => {
+          const ErrorBoundary = await getErrorComponent();
 
-  if (layout) {
-    return {
-      lazy: layouts[layout],
-      children: [reactRoute],
-      ErrorBoundary
-    } as RouteObject;
+          return {
+            ErrorBoundary: ErrorBoundary?.default,
+            ...(await getConfig(true))
+          };
+        }
+      });
+    }
   }
 
   return reactRoute;
-}
-
-/**
- * map of route name and route path
- */
-const routeMap: RouteMap = {
-  ${allEntries.map(([routeName, routePath]) => `"${routeName}": "${routePath}"`).join(',\n  ')}
-};
-
-/**
- * get route path by route name
- * @param name route name
- */
-export function getRoutePath<T extends RouteKey>(name: T) {
-  return routeMap[name];
-}
-
-/**
- * get route name by route path
- * @param path route path
- */
-export function getRouteName(path: RoutePath) {
-  const routeEntries = Object.entries(routeMap) as [RouteKey, RoutePath][];
-
-  const routeName: RouteKey | null = routeEntries.find(([, routePath]) => routePath === path)?.[0] || null;
-
-  return routeName;
-}
-
-/**
- * get route redirect path
- * @param path route path
- */
-function getRedirectPath(path: string, childrenPath: string) {
-   if(path.startsWith('/')){
-     return path +'/' + childrenPath;
-   }
-     return   childrenPath
 }
 `;
 

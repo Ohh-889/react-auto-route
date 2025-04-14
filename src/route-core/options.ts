@@ -10,35 +10,28 @@ export function createPluginOptions(erOptions: ElegantRouterOption, options?: Pa
   const DTS_DIR = 'src/types/elegant-router.d.ts';
   const IMPORT_DIR = 'src/router/elegant/imports.ts';
   const CONST_DIR = 'src/router/elegant/routes.ts';
-  const ROUTE_INFO_FILENAME = 'config.ts';
+  const ROUTE_MAP_DIR = 'src/router/elegant/routeMap.ts';
   const TRANSFORM_DIR = 'src/router/elegant/transform.ts';
   const CUSTOM_ROUTES_MAP: Record<string, string> = {
-    root: '/',
-    'not-found': '*'
-  };
-  const DEFAULT_LAYOUTS: Record<string, string> = {
-    base: 'src/layouts/base-layout/index.tsx',
-    blank: 'src/layouts/blank-layout/index.tsx'
+    'not-found': '*',
+    root: '/'
   };
 
   const opts: ElegantReactRouterOption = {
-    dtsDir: DTS_DIR,
-    importsDir: IMPORT_DIR,
-    lazyImport: _name => true,
     constDir: CONST_DIR,
     customRoutes: {
       map: {},
       names: []
     },
-    routeInfoByFile: true,
-    routeInfoFileName:ROUTE_INFO_FILENAME,
-    layouts: DEFAULT_LAYOUTS,
-    defaultLayout: Object.keys(DEFAULT_LAYOUTS)[0],
+    dtsDir: DTS_DIR,
+    importsDir: IMPORT_DIR,
     layoutLazyImport: _name => true,
-    transformDir: TRANSFORM_DIR,
+    lazyImport: _name => true,
     onRouteMetaGen: name => ({
       title: name
     }),
+    routeMapDir: ROUTE_MAP_DIR,
+    transformDir: TRANSFORM_DIR,
     ...erOptions,
     ...options
   };
@@ -47,10 +40,6 @@ export function createPluginOptions(erOptions: ElegantRouterOption, options?: Pa
     ...CUSTOM_ROUTES_MAP,
     ...opts.customRoutes.map
   };
-
-  if (!opts.layouts[opts.defaultLayout]) {
-    opts.defaultLayout = Object.keys(opts.layouts)[0];
-  }
 
   return opts;
 }

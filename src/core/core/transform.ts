@@ -1,4 +1,13 @@
 import path from 'node:path';
+
+import {
+  NOT_FOUND_ROUTE,
+  PAGE_DEGREE_SPLITTER,
+  PAGE_FILE_NAME_WITH_SQUARE_BRACKETS_PATTERN,
+  PATH_SPLITTER,
+  ROUTE_NAME_WITH_PARAMS_PATTERN
+} from '../constants';
+import { isRouteGroup } from '../shared/glob';
 import type {
   ElegantRouterFile,
   ElegantRouterNamePathEntry,
@@ -6,7 +15,7 @@ import type {
   ElegantRouterOption,
   ElegantRouterTree
 } from '../types';
-import { PAGE_DEGREE_SPLITTER, PAGE_FILE_NAME_WITH_SQUARE_BRACKETS_PATTERN, PATH_SPLITTER } from '../constants';
+
 import { getFullPathOfPageGlob } from './path';
 
 /**
@@ -16,12 +25,19 @@ import { getFullPathOfPageGlob } from './path';
  * @param options
  */
 export function transformPageGlobToRouterFile(glob: string, options: ElegantRouterOption) {
-  const { cwd, pageDir, alias, routeNameTransformer } = options;
+  const { alias, cwd, pageDir, routeNameTransformer } = options;
 
   // 1. get path info
   const fullPath = getFullPathOfPageGlob(glob, pageDir, cwd);
 
-  let importPath = path.posix.join(pageDir, glob);
+  const importPath = path.posix.join(pageDir, glob);
+
+  let importAliasPath = importPath;
+
+  // 2. get route info
+  const dirAndFile = glob.split(PATH_SPLITTER).reverse();
+
+  const [file, ...dirs] = dirAndFile;
 
   const aliasEntries = Object.entries(alias);
 
@@ -30,38 +46,34 @@ export function transformPageGlobToRouterFile(glob: string, options: ElegantRout
     const match = importPath.startsWith(dir);
 
     if (match) {
-      importPath = importPath.replace(dir, a);
+      importAliasPath = importAliasPath.replace(dir, a);
     }
     return match;
   });
 
-  // 2. get route info
-  const dirAndFile = glob.split(PATH_SPLITTER).reverse();
-  const [file, ...dirs] = dirAndFile;
-
   const filteredDirs = dirs.filter(dir => !dir.startsWith(PAGE_DEGREE_SPLITTER)).reverse();
 
-  const routeName = routeNameTransformer(filteredDirs.join(PAGE_DEGREE_SPLITTER).toLocaleLowerCase());
-  let routePath = transformRouterNameToPath(routeName);
-
-  let routeParamKey = '';
-
   if (PAGE_FILE_NAME_WITH_SQUARE_BRACKETS_PATTERN.test(file)) {
-    const [fileName] = file.split('.');
-    routeParamKey = fileName.replace(/\[|\]/g, '');
-    routePath = `${routePath}/:${routeParamKey}`;
+    filteredDirs.push(file.replace(/\.tsx$/, ''));
   }
 
-  const item: ElegantRouterFile = {
-    glob,
+  let routeName = routeNameTransformer(filteredDirs.join(PAGE_DEGREE_SPLITTER).toLocaleLowerCase());
+
+  // 特殊处理根路径下的文件
+  if (filteredDirs.length === 0) {
+    routeName = 'root';
+  }
+
+  const routePath = transformRouterNameToPath(routeName);
+
+  return {
     fullPath,
+    glob,
+    importAliasPath,
     importPath,
     routeName,
-    routePath: options.routePathTransformer(routeName, routePath),
-    routeParamKey
-  };
-
-  return item;
+    routePath: options.routePathTransformer(routeName, routePath)
+  } as ElegantRouterFile;
 }
 
 /**
@@ -71,7 +83,7 @@ export function transformPageGlobToRouterFile(glob: string, options: ElegantRout
  * @param options
  */
 export function transformRouterFilesToMaps(files: ElegantRouterFile[], options: ElegantRouterOption) {
-  const maps: ElegantRouterNamePathMap = new Map<string, string>();
+  const maps: ElegantRouterNamePathMap = new Map<string, string | null>();
 
   files.forEach(file => {
     const { routeName, routePath } = file;
@@ -116,7 +128,11 @@ export function transformRouterMapsToEntries(maps: ElegantRouterNamePathMap) {
  * @param entries
  * @param options
  */
-export function transformRouterEntriesToTrees(entries: ElegantRouterNamePathEntry[], maps: ElegantRouterNamePathMap) {
+export function transformRouterEntriesToTrees(
+  entries: ElegantRouterNamePathEntry[],
+  maps: ElegantRouterNamePathMap,
+  files: ElegantRouterFile[]
+) {
   const treeWithClassify = new Map<string, string[][]>();
 
   entries.forEach(([routeName]) => {
@@ -125,7 +141,9 @@ export function transformRouterEntriesToTrees(entries: ElegantRouterNamePathEntr
     if (isFirstLevel) {
       treeWithClassify.set(routeName, []);
     } else {
-      const firstLevelName = routeName.split(PAGE_DEGREE_SPLITTER)[0];
+      const names = routeName.split(PAGE_DEGREE_SPLITTER);
+
+      const firstLevelName = names[0];
 
       const levels = routeName.split(PAGE_DEGREE_SPLITTER).length;
 
@@ -144,12 +162,16 @@ export function transformRouterEntriesToTrees(entries: ElegantRouterNamePathEntr
   const trees: ElegantRouterTree[] = [];
 
   treeWithClassify.forEach((children, key) => {
+    const { fullPath, matchedResult } = findMatchedFiles(files, key);
+
     const firstLevelRoute: ElegantRouterTree = {
+      fullPath,
+      matchedFiles: matchedResult,
       routeName: key,
-      routePath: maps.get(key) || ''
+      routePath: maps.get(key) || null
     };
 
-    const treeChildren = recursiveGetRouteTreeChildren(key, children, maps);
+    const treeChildren = recursiveGetRouteTreeChildren(key, children, maps, files);
 
     if (treeChildren.length > 0) {
       firstLevelRoute.children = treeChildren;
@@ -157,6 +179,38 @@ export function transformRouterEntriesToTrees(entries: ElegantRouterNamePathEntr
 
     trees.push(firstLevelRoute);
   });
+
+  const rootIndex = trees.findIndex(tree => tree.routeName === 'root');
+
+  if (rootIndex !== -1 && trees[rootIndex].matchedFiles[0]) {
+    const rootNode = trees[rootIndex];
+
+    // 创建一个新的数组，将 rootNode 的 children 设置为其他所有节点
+    const newTrees = [
+      {
+        ...rootNode, // 保留 root 节点的原有属性
+        children: trees.filter((_, index) => index !== rootIndex) // 将除了 root 以外的所有节点作为 children
+      }
+    ];
+
+    const routes = newTrees[0].children;
+    const notFoundPath = routes.find(item => item?.routeName === '404');
+
+    if (notFoundPath) {
+      NOT_FOUND_ROUTE.matchedFiles = notFoundPath.matchedFiles;
+    }
+
+    routes.push(NOT_FOUND_ROUTE);
+    return newTrees;
+  }
+
+  const notFoundPath = trees.find(item => item?.routeName === '404');
+
+  if (notFoundPath) {
+    NOT_FOUND_ROUTE.matchedFiles = notFoundPath.matchedFiles;
+  }
+
+  trees.push(NOT_FOUND_ROUTE);
 
   return trees;
 }
@@ -168,26 +222,36 @@ export function transformRouterEntriesToTrees(entries: ElegantRouterNamePathEntr
  * @param children
  * @param maps
  */
-function recursiveGetRouteTreeChildren(parentName: string, children: string[][], maps: ElegantRouterNamePathMap) {
+// eslint-disable-next-line max-params
+function recursiveGetRouteTreeChildren(
+  parentName: string,
+  children: string[][],
+  maps: ElegantRouterNamePathMap,
+  files: ElegantRouterFile[]
+) {
   if (children.length === 0) {
     return [];
   }
 
   const [current, ...rest] = children;
 
-  const currentChildren = current.filter(name => name.startsWith(parentName));
+  const currentChildren = current.filter(name => name.startsWith(parentName) && name !== parentName);
 
   const trees = currentChildren.map(name => {
+    const { fullPath, matchedResult } = findMatchedFiles(files, name);
     const tree: ElegantRouterTree = {
+      fullPath,
+      matchedFiles: matchedResult,
       routeName: name,
-      routePath: maps.get(name) || ''
+      routePath: maps.get(name) || null
     };
 
-    const nextChildren = recursiveGetRouteTreeChildren(name, rest, maps);
+    const nextChildren = recursiveGetRouteTreeChildren(name, rest, maps, files);
 
     if (nextChildren.length > 0) {
       tree.children = nextChildren;
     }
+
     return tree;
   });
 
@@ -225,10 +289,65 @@ export function splitRouterName(name: string) {
  * @param name
  */
 export function transformRouterNameToPath(name: string) {
-  const nameList = name.split(PAGE_DEGREE_SPLITTER);
-  const routePath = nameList.at(-1);
+  if (name === 'root') return '/';
 
-  const routerPath = nameList.length > 1 ? routePath : PATH_SPLITTER + routePath;
+  if (isRouteGroup(name)) return null;
 
-  return routerPath as string;
+  // 依次执行一系列替换
+  const cleanedName = name
+    // 1. 去除路由组 (auth)、(xxx) 等 (可能带后缀下划线)
+    .replaceAll(/\([^)]+\)_?/g, '')
+    // 2. 将 [...param] 转换为 *
+    .replaceAll(/\[\.{3}[^\]]+\]/g, '*')
+    // 2. 将 [param] 转换为 :param
+    .replaceAll(/\[([^\]]+)\]/g, ':$1')
+    // 3. 如果需要将特定标识替换，可在此处继续添加
+    .replaceAll(PAGE_DEGREE_SPLITTER, PATH_SPLITTER);
+
+  // 最终在前面拼接 '/'
+  return `/${cleanedName}`;
+}
+
+function findMatchedFiles(data: ElegantRouterFile[], currentName: string) {
+  // 结果数组，四个值都为 null
+  // 分别对应: 0->layout, 1->index, 2->loading, 3->error
+  const matchedResult: (string | null)[] = [null, null, null, null];
+
+  // findIndex 找到当前 name 对应的下标
+  const startIndex = data.findIndex(item => item.routeName === currentName);
+
+  if (startIndex === -1) {
+    // 找不到就直接返回全是 null 的数组
+    return { fullPath: null, matchedResult };
+  }
+
+  // 最多匹配 3 个之后的元素(含自己共 4 个)
+  const endIndex = Math.min(startIndex + 4, data.length - 1);
+
+  // 从 startIndex 开始往后遍历，直到 endIndex
+  for (let i = startIndex; i <= endIndex; i += 1) {
+    const { importPath, routeName } = data[i];
+
+    // 如果后面的 name 跟当前 name 不一样，则立即停止匹配
+    if (routeName !== currentName) {
+      break;
+    }
+
+    const { glob } = data[i];
+
+    // 如果 name 一直跟 currentName 一样，则根据文件结尾来判定要填哪一个
+    if (glob.endsWith('layout.tsx')) {
+      matchedResult[0] = routeName; // 把 layout 填入第一个位置
+    } else if (glob.endsWith('index.tsx') || ROUTE_NAME_WITH_PARAMS_PATTERN.test(glob)) {
+      if (!isRouteGroup(routeName)) {
+        matchedResult[1] = `/${importPath}`; // 填入第二个位置
+      }
+    } else if (glob.endsWith('loading.tsx')) {
+      matchedResult[2] = `/${importPath}`; // 填入第三个位置
+    } else if (glob.endsWith('error.tsx')) {
+      matchedResult[3] = routeName; // 填入第四个位置
+    }
+  }
+
+  return { fullPath: data[startIndex].fullPath, matchedResult };
 }

@@ -1,5 +1,7 @@
-import micromatch from 'micromatch';
 import type { FSWatcher } from 'chokidar';
+import micromatch from 'micromatch';
+
+import { getGlobs } from '../shared/glob';
 import type {
   ElegantRouterFile,
   ElegantRouterNamePathEntry,
@@ -7,10 +9,8 @@ import type {
   ElegantRouterOption,
   ElegantRouterTree
 } from '../types';
-import { getGlobs } from '../shared/glob';
+
 import { createPluginOptions } from './options';
-import { handleValidatePageGlob } from './validate';
-import { getFullPathOfPageGlob } from './path';
 import {
   transformPageGlobToRouterFile,
   transformRouterEntriesToTrees,
@@ -55,30 +55,9 @@ export default class ElegantRouter {
 
   /** get the valid page globs */
   getPageGlobs() {
-    const { pagePatterns, pageExcludePatterns, pageDir } = this.options;
+    const { pageDir, pageExcludePatterns, pagePatterns } = this.options;
 
-    const globs = getGlobs(pagePatterns, pageExcludePatterns, pageDir);
-
-    this.pageGlobs = this.filterValidPageGlobs(globs);
-  }
-
-  /**
-   * filter the valid page globs
-   *
-   * @param globs
-   */
-  filterValidPageGlobs(globs: string[], needMatch = false) {
-    const { cwd, pageDir } = this.options;
-
-    return globs.filter(glob => {
-      const fullGlob = getFullPathOfPageGlob(glob, pageDir, cwd);
-
-      const isValid = handleValidatePageGlob(glob, fullGlob);
-
-      const isMatch = !needMatch || this.isMatchPageGlob(glob);
-
-      return isValid && isMatch;
-    });
+    this.pageGlobs = getGlobs(pagePatterns, pageExcludePatterns, pageDir);
   }
 
   /**
@@ -87,7 +66,7 @@ export default class ElegantRouter {
    * @param glob
    */
   isMatchPageGlob(glob: string) {
-    const { pagePatterns, pageExcludePatterns } = this.options;
+    const { pageExcludePatterns, pagePatterns } = this.options;
 
     return micromatch.isMatch(glob, pagePatterns, { ignore: pageExcludePatterns });
   }
@@ -104,9 +83,12 @@ export default class ElegantRouter {
   /** get the router context props */
   getRouterContextProps() {
     this.files = this.pageGlobs.map(glob => transformPageGlobToRouterFile(glob, this.options));
+
     this.maps = transformRouterFilesToMaps(this.files, this.options);
+
     this.entries = transformRouterMapsToEntries(this.maps);
-    this.trees = transformRouterEntriesToTrees(this.entries, this.maps);
+
+    this.trees = transformRouterEntriesToTrees(this.entries, this.maps, this.files);
   }
 
   /**
@@ -115,19 +97,15 @@ export default class ElegantRouter {
    * @param afterChange after change callback
    * @param beforeChange before change callback
    */
-  setupFSWatcher(afterChange: () => void, beforeChange?: () => void) {
+  setupFSWatcher(afterChange: (action: 'add' | 'unlink', path: string) => void, beforeChange?: () => void) {
     const { pageDir, pageExcludePatterns } = this.options;
     this.fsWatcher = setupWatcher(
       pageDir,
       pageExcludePatterns,
-      globs => {
-        const updateGlobs = this.filterValidPageGlobs(globs, true);
-        const needUpdate = updateGlobs.length > 0;
-        if (needUpdate) {
-          beforeChange?.();
-          this.scanPages();
-          afterChange();
-        }
+      (action, path) => {
+        beforeChange?.();
+        this.scanPages();
+        afterChange(action, path);
       },
       this.options.log
     );

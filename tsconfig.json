@@ -6,7 +6,9 @@
     "lib": ["DOM", "ESNext"],
     "skipLibCheck": true,
     "baseUrl": ".",
-
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     /* Bundler mode */
     "moduleResolution": "node",
     "allowImportingTsExtensions": true,

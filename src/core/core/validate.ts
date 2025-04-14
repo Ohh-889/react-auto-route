@@ -1,4 +1,5 @@
 import { consola } from 'consola';
+
 import {
   PAGE_DIR_NAME_PATTERN,
   PAGE_FILE_NAME_PATTERN,

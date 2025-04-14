@@ -1,17 +1,19 @@
 import { watch } from 'chokidar';
+
 import { log } from './log';
 import { normalizeWindowsPath } from './path';
 
+// eslint-disable-next-line max-params
 export function setupWatcher(
   watchDir: string,
   ignored: string[],
-  callback: (glob: string[]) => Promise<void> | void,
+  callback: (action: 'add' | 'unlink', addPath: string) => Promise<void> | void,
   showLog = true
 ) {
   const watcher = watch('.', {
-    ignoreInitial: true,
     cwd: watchDir,
-    ignored
+    ignored,
+    ignoreInitial: true
   });
 
   const stacks: string[] = [];
@@ -26,13 +28,15 @@ export function setupWatcher(
 
   let timeoutId: NodeJS.Timeout | null = null;
 
-  function handleStack(duration = 500) {
+  function handleStack(action: 'add' | 'unlink', path: string, duration = 500) {
     if (timeoutId) return;
 
     timeoutId = setTimeout(async () => {
-      await callback(stacks);
+      log(`The ${path} file has been ${action}, regenerating the dts file and routes...`, 'info', showLog);
+      await callback(action, path);
 
       clearStack();
+
       if (timeoutId) {
         clearTimeout(timeoutId);
         timeoutId = null;
@@ -46,12 +50,12 @@ export function setupWatcher(
   watcher.on('add', path => {
     const normalPath = normalizeWindowsPath(path);
     addStack(normalPath);
-    handleStack();
+    handleStack('add', normalPath);
   });
   watcher.on('unlink', path => {
     const normalPath = normalizeWindowsPath(path);
     addStack(normalPath);
-    handleStack();
+    handleStack('unlink', normalPath);
   });
 
   return watcher;

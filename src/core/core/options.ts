@@ -1,5 +1,7 @@
 import process from 'node:process';
+
 import type { ElegantRouterOption } from '../types';
+
 import { normalizeWindowsPath } from './path';
 
 /**
@@ -9,20 +11,20 @@ import { normalizeWindowsPath } from './path';
  */
 export function createPluginOptions(options?: Partial<ElegantRouterOption>): ElegantRouterOption {
   const PAGE_DIR = 'src/pages';
-  const PAGE_PATTERNS = ['**/index.tsx', '**/[[]*[]].tsx'];
-  const PAGE_EXCLUDE_PATTERNS = ['**/components/**'];
+  const PAGE_PATTERNS = ['**/index.tsx', '**/[[]*[]].tsx', '**/layout.tsx', '**/loading.tsx', '**/error.tsx'];
+  const PAGE_EXCLUDE_PATTERNS = ['**/components/**', '**/modules/**'];
 
   const opts: ElegantRouterOption = {
-    cwd: process.cwd(),
-    pageDir: PAGE_DIR,
     alias: {
       '@': 'src'
     },
-    pagePatterns: PAGE_PATTERNS,
+    cwd: process.cwd(),
+    log: true,
+    pageDir: PAGE_DIR,
     pageExcludePatterns: PAGE_EXCLUDE_PATTERNS,
+    pagePatterns: PAGE_PATTERNS,
     routeNameTransformer: name => name,
     routePathTransformer: (_transformedName, path) => path,
-    log: true,
     ...options
   };
 

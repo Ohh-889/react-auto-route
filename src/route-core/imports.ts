@@ -1,61 +1,61 @@
-import path from 'node:path';
 import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
+
+import dedent from 'dedent';
+
 import type { ElegantRouterFile } from '../core';
-import type { ElegantReactRouterOption } from '../types';
 import { ensureFile } from '../shared/fs';
+import type { ElegantReactRouterOption } from '../types';
+
 import { createPrefixCommentOfGenFile } from './comment';
 
 function getImportsCode(files: ElegantRouterFile[], options: ElegantReactRouterOption) {
-  const layoutFiles = getLayoutFile(options);
-
   const preCode = createPrefixCommentOfGenFile();
 
-  let importCode = `import type { LazyRouteFunction, RouteObject } from "react-router-dom";
-import type { LastLevelRouteKey, RouteLayout } from "@elegant-router/types";
-type CustomRouteObject = Omit<RouteObject, 'Component'|'index'> & {
-  Component?: React.ComponentType<any>|null;
-};
-`;
+  let importCode = ``;
 
-  let exportLayoutCode = `export const layouts: Record<RouteLayout, LazyRouteFunction<CustomRouteObject>> = {`;
+  let exportLayoutCode = `export const layouts: Record<string, () => Promise<any>> = {`;
 
-  layoutFiles.forEach(file => {
-    const { layoutName, importPath } = file;
+  let exportPages = `export const pages: Record<string, () => Promise<any>> = {`;
 
-    const isLazy = options.layoutLazyImport(layoutName);
+  let exportError = `export const errors: Record<string, () => Promise<any>> = {`;
+
+  // 通用的文件导入处理函数
+  function handleFileImport(routeName: string, importPath: string, code: string) {
+    const isLazy = options.lazyImport(routeName);
+    const key = `"${routeName}"`;
 
     if (isLazy) {
-      exportLayoutCode += `\n  ${layoutName}: () => import("${importPath}"),`;
+      // eslint-disable-next-line no-param-reassign
+      code += `\n  ${key}: () => import("${importPath}"),`;
     } else {
-      const importKey = `${layoutName[0].toUpperCase()}${layoutName.substring(1)}Layout`;
-      importCode += `import ${importKey} from "${file.importPath}";\n`;
-      exportLayoutCode += `\n  ${layoutName}: ${importKey},`;
+      const importKey = getImportKey(routeName);
+      importCode += `import ${importKey} from "${importPath}";\n`;
+      // eslint-disable-next-line no-param-reassign
+      code += `\n  ${key}${key === importKey ? '' : `: ${importKey}`},`;
+    }
+
+    return code;
+  }
+
+  files.forEach(file => {
+    const { importAliasPath, routeName } = file;
+
+    if (importAliasPath?.endsWith('layout.tsx')) {
+      exportLayoutCode = handleFileImport(routeName, importAliasPath, exportLayoutCode);
+    } else if (importAliasPath?.endsWith('error.tsx')) {
+      exportError = handleFileImport(routeName, importAliasPath, exportError);
+    } else if (!importAliasPath?.endsWith('loading.tsx')) {
+      exportPages = handleFileImport(routeName, importAliasPath || '', exportPages);
     }
   });
 
   importCode += '\n';
   exportLayoutCode += '\n};\n';
+  exportPages += '\n};\n';
+  exportError += '\n};\n';
 
-  let exportCode = `export const pages: Record<LastLevelRouteKey, LazyRouteFunction<CustomRouteObject>> = {`;
-
-  files.forEach(file => {
-    const isLazy = options.lazyImport(file.routeName);
-
-    const key = file.routeName.includes('-') ? `"${file.routeName}"` : file.routeName;
-
-    if (isLazy) {
-      exportCode += `\n  ${key}: () => import("${file.importPath}"),`;
-    } else {
-      const importKey = getImportKey(file.routeName);
-      importCode += `import ${importKey} from "${file.importPath}";\n`;
-
-      exportCode += `\n  ${key}${key === importKey ? '' : `: ${importKey}`},`;
-    }
-  });
-
-  exportCode += '\n};\n';
-
-  return `${preCode}\n\n${importCode}${exportLayoutCode}\n${exportCode}`;
+  return dedent`${preCode}\n\n${importCode}${exportLayoutCode}\n${exportPages}\n${exportError}`;
 }
 
 function getImportKey(name: string) {
@@ -89,33 +89,4 @@ export async function genImportsFile(files: ElegantRouterFile[], options: Elegan
   const code = getImportsCode(files, options);
 
   await writeFile(importsPath, code);
-}
-
-export function getLayoutFile(options: ElegantReactRouterOption) {
-  const { alias, layouts } = options;
-
-  const layoutKeys = Object.keys(layouts);
-
-  const files: {
-    layoutName: string;
-    importPath: string;
-  }[] = layoutKeys.map(key => {
-    let importPath = layouts[key];
-
-    Object.entries(alias).some(([a, dir]) => {
-      const match = importPath.startsWith(dir);
-      if (match) {
-        importPath = importPath.replace(dir, a);
-      }
-
-      return match;
-    });
-
-    return {
-      layoutName: key,
-      importPath
-    };
-  });
-
-  return files;
 }

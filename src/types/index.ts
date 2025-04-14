@@ -1,36 +1,8 @@
 import type { RouteObject } from 'react-router-dom';
+
 import type { ElegantRouterNamePathEntry, ElegantRouterOption } from '../core';
 
 export interface ElegantReactRouterOption extends ElegantRouterOption {
-  /**
-   * the declaration file directory of the generated routes
-   *
-   * @default 'src/typings/elegant-router.d.ts'
-   */
-  dtsDir: string;
-  /**
-   * the directory of the imports of routes
-   *
-   * @default 'src/router/elegant/imports.ts'
-   */
-  importsDir: string;
-  /**
-   * whether the route is lazy import
-   *
-   * @example
-   *   - the direct import
-   *   ```ts
-   *   import Home from './views/home/index.vue';
-   *   ```
-   *   - the lazy import
-   *   ```ts
-   *   const Home = import('./views/home/index.vue');
-   *   ```
-   *
-   * @default _name => true
-   * @param routeName route name
-   */
-  lazyImport(routeName: string): boolean;
   /**
    * the directory of the route const
    *
@@ -74,23 +46,17 @@ export interface ElegantReactRouterOption extends ElegantRouterOption {
     names?: string[];
   };
   /**
-   * the name and file path of the route layouts
+   * the declaration file directory of the generated routes
    *
-   * @default
-   * ```ts
-   * const layouts: Record<string, string> = {
-   *   base: 'src/layouts/base-layout/index.vue',
-   *   blank: 'src/layouts/blank-layout/index.vue'
-   * }
-   * ```
+   * @default 'src/typings/elegant-router.d.ts'
    */
-  layouts: Record<string, string>;
+  dtsDir: string;
   /**
-   * the default layout name used in generated route const
+   * the directory of the imports of routes
    *
-   * if it doesn't set, it will be the first key of option "layouts"
+   * @default 'src/router/elegant/imports.ts'
    */
-  defaultLayout: string;
+  importsDir: string;
   /**
    * whether the route is lazy import
    *
@@ -99,13 +65,22 @@ export interface ElegantReactRouterOption extends ElegantRouterOption {
    */
   layoutLazyImport(layoutName: string): boolean;
   /**
-   * the directory of the routes transform function
+   * whether the route is lazy import
    *
-   * Converts the route definitions of the generated conventions into routes for the vue-router.
+   * @example
+   *   - the direct import
+   *   ```ts
+   *   import Home from './views/home/index.vue';
+   *   ```
+   *   - the lazy import
+   *   ```ts
+   *   const Home = import('./views/home/index.vue');
+   *   ```
    *
-   * @default 'src/router/elegant/transform.ts'
+   * @default _name => true
+   * @param routeName route name
    */
-  transformDir: string;
+  lazyImport(routeName: string): boolean;
   /**
    * the route meta generator
    *
@@ -118,9 +93,22 @@ export interface ElegantReactRouterOption extends ElegantRouterOption {
    * @param routeName the route name
    */
   onRouteMetaGen(routeName: string): Record<string, unknown>;
-  errorBoundaryPath?: string
-  routeInfoByFile?: boolean,
-  routeInfoFileName?:string
+  routeInfoByFile?: boolean;
+  routeInfoFileName?: string;
+  /**
+   * the directory of the route map
+   *
+   * @default 'src/router/elegant/routeMap.ts'
+   */
+  routeMapDir: string;
+  /**
+   * the directory of the routes transform function
+   *
+   * Converts the route definitions of the generated conventions into routes for the vue-router.
+   *
+   * @default 'src/router/elegant/transform.ts'
+   */
+  transformDir: string;
 }
 
 export type CustomRouteConfig = {
@@ -129,18 +117,14 @@ export type CustomRouteConfig = {
   lastLevelRoutes: string[];
 };
 
-export declare interface RouteMeta extends Record<string | number, unknown> {}
+export type RouteMeta = Record<string | number, unknown>;
 
 /** elegant const route */
-export type ElegantConstRoute = Omit<RouteObject, 'id' | 'path' | 'children'> & {
-  name: string;
-  path: string;
-  component?: string;
-  meta?: RouteMeta;
-  props?: Record<string, unknown>;
-  layout?: string;
-  redirect?: string;
+export type ElegantConstRoute = Omit<RouteObject, 'children' | 'id' | 'path'> & {
   children?: ElegantConstRoute[];
+  matchedFiles: (string | null)[];
+  name: string;
+  path?: string | null;
 };
 
 export type RouteConstExport = {

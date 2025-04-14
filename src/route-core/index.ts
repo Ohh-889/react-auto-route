@@ -1,12 +1,17 @@
-import ElegantRouter from '../core';
 import type { ViteDevServer } from 'vite';
+
+import ElegantRouter from '../core';
 import type { ElegantReactRouterOption } from '../types';
-import { createPluginOptions } from './options';
-import { genImportsFile } from './imports';
-import { genDtsFile } from './dts';
+
 import { genConstFile } from './const';
-import { genTransformFile } from './transform';
+import { genDtsFile } from './dts';
+import { genImportsFile } from './imports';
 import { log } from './log';
+import { createPluginOptions } from './options';
+import { genPageFile } from './page';
+import { genRouteMapFile } from './routeMap';
+import { genTransformFile } from './transform';
+
 export default class ElegantReactRouter {
   options: ElegantReactRouterOption;
 
@@ -23,11 +28,16 @@ export default class ElegantReactRouter {
   }
 
   setupFSWatcher() {
-    this.elegantRouter.setupFSWatcher(async () => {
+    this.elegantRouter.setupFSWatcher(async (action, path) => {
       log('The pages changed, regenerating the dts file and routes...', 'info', this.options.log);
 
-      await this.generate();
+      if (action === 'add') {
+        log(`The ${path} file has been added, regenerating the dts file and routes...`, 'info', this.options.log);
 
+        genPageFile(path, this.options);
+      }
+
+      await this.generate();
       log('The dts file and routes have been regenerated successfully', 'success', this.options.log);
 
       this.reloadViteServer();
@@ -39,7 +49,7 @@ export default class ElegantReactRouter {
   }
 
   reloadViteServer() {
-    this.viteServer?.ws?.send({ type: 'full-reload', path: '*' });
+    this.viteServer?.ws?.send({ path: '*', type: 'full-reload' });
   }
 
   setViteServer(server: ViteDevServer) {
@@ -47,11 +57,16 @@ export default class ElegantReactRouter {
   }
 
   async generate() {
-    const { files, entries, trees } = this.elegantRouter;
+    const { entries, files, trees } = this.elegantRouter;
 
-    genTransformFile(this.options, entries);
+    genTransformFile(this.options);
+
     await genDtsFile(files, entries, this.options);
+
     await genImportsFile(files, this.options);
+
+    await genRouteMapFile(files, this.options, entries);
+
     await genConstFile(trees, this.options);
   }
 }

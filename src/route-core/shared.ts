@@ -13,7 +13,7 @@ export function getCustomRouteConfig(
 ): CustomRouteConfig {
   const { map, names } = options.customRoutes;
 
-  const entryMap = new Map<string, string>();
+  const entryMap = new Map<string, string | null>();
   const firstLevelRouteSet = new Set<string>();
   const lastLevelRouteSet = new Set<string>();
 
