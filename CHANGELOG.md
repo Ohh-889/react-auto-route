@@ -1,6 +1,27 @@
 # Changelog
 
 
+## [v0.7.2](https://github.com/Ohh-889/react-auto-route/compare/v0.3.5...v0.7.2) (2025-09-04)
+
+### &nbsp;&nbsp;&nbsp;🚀 Features
+
+- 完成工程的大迁移 &nbsp;-&nbsp; by @SkyRoc1 [<samp>(34ebf)</samp>](https://github.com/Ohh-889/react-auto-route/commit/34ebfc6)
+- Only generate page file for tsx/jsx files &nbsp;-&nbsp; by @wenyuanw [<samp>(8ce3b)</samp>](https://github.com/Ohh-889/react-auto-route/commit/8ce3b01)
+- install the soybean-cli plugin to enable automatic updates &nbsp;-&nbsp; by @SkyRoc1 [<samp>(91e5a)</samp>](https://github.com/Ohh-889/react-auto-route/commit/91e5a61)
+
+### &nbsp;&nbsp;&nbsp;📖 Documentation
+
+- rename the zh-CN doc &nbsp;-&nbsp; by @wenyuanw [<samp>(92559)</samp>](https://github.com/Ohh-889/react-auto-route/commit/9255924)
+
+### &nbsp;&nbsp;&nbsp;🏡 Chore
+
+- update README &nbsp;-&nbsp; by @SkyRoc1 [<samp>(02950)</samp>](https://github.com/Ohh-889/react-auto-route/commit/029509f)
+- add tsx devDependencies &nbsp;-&nbsp; by @wenyuanw [<samp>(dadb7)</samp>](https://github.com/Ohh-889/react-auto-route/commit/dadb765)
+
+### &nbsp;&nbsp;&nbsp;❤️ Contributors
+
+[![SkyRoc1](https://github.com/SkyRoc1.png?size=48)](https://github.com/SkyRoc1)&nbsp;&nbsp;[![wenyuanw](https://github.com/wenyuanw.png?size=48)](https://github.com/wenyuanw)&nbsp;&nbsp;
+
 ## [v0.3.5](https://github.com/mufeng889/react-auto-route/compare/v0.3.3...v0.3.5) (2024-09-09)
 
 ### &nbsp;&nbsp;&nbsp;🚀 Features
