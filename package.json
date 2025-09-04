@@ -69,6 +69,7 @@
     "dev": "unbuild --stub",
     "lint": "eslint . --fix",
     "preview": "vite preview",
+    "release": "pnpm soy release",
     "publish-pkg": "pnpm -r publish --access public --no-git-checks",
     "typecheck": "tsc --noEmit --skipLibCheck"
   },
@@ -92,6 +93,7 @@
     "unplugin": "1.12.0"
   },
   "devDependencies": {
+    "@soybeanjs/cli": "^1.4.0",
     "@types/gradient-string": "1.1.6",
     "@types/micromatch": "4.0.9",
     "@types/node": "22.14.1",
