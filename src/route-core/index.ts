@@ -31,9 +31,10 @@ export default class ElegantReactRouter {
     this.elegantRouter.setupFSWatcher(async (action, path) => {
       log('The pages changed, regenerating the dts file and routes...', 'info', this.options.log);
 
-      if (action === 'add') {
+      // Handle file addition for tsx/jsx files
+      const isNewPageFile = action === 'add' && (path.endsWith('.tsx') || path.endsWith('.jsx'));
+      if (isNewPageFile) {
         log(`The ${path} file has been added, regenerating the dts file and routes...`, 'info', this.options.log);
-
         genPageFile(path, this.options);
       }
 
